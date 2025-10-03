@@ -6,3 +6,22 @@ def power_function(target: int, power: int ) -> float:
     :return: Возвращает число возведенное в степень
     """
     return pow(target, power)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
