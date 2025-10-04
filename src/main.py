@@ -5,7 +5,6 @@ and Infix expressions with optional parentheses validation.
 
 import sys
 
-from src.constants import ERRORS
 from src.power import calculate, translate_in_RPN
 
 
@@ -24,50 +23,63 @@ def run() -> None:  # noqa: C901
     - If an invalid expression is provided, prints an error message.
     """
     print(
-        "Welcome to calculator! Enter RPN and Infix expressions, tokens separated by spaces. "
-        "Parentheses allowed. Unary +- must be written directly with the number (e.g., -3, +2.5)."
+        "Welcome to the Calculator!"
+        "\nYou can enter expressions in two modes:"
+        "\n  1) RPN (Reverse Polish Notation) - tokens separated by spaces"
+        "\n  2) IN (Infix notation) - standard mathematical notation with optional parentheses"
+        "\nType 'stop' at any time to exit the current mode or the program."
     )
+
     for line in sys.stdin:
         line = line.strip()
         if not line:
             continue
 
-        if line == "RPN":
+        if line.upper() == "RPN":
+            print("\nEntered RPN mode. Input expressions with tokens separated by spaces.")
+            print("Type 'stop' to exit RPN mode.")
             try:
-                for line_RPN in sys.stdin:
-                    line_RPN = line_RPN.strip()
-                    if not line_RPN:
+                for line_rpn in sys.stdin:
+                    line_rpn = line_rpn.strip()
+                    if not line_rpn:
                         continue
-                    if line_RPN == "stop":
+                    if line_rpn.lower() == "stop":
+                        print("Exiting RPN mode.\n")
                         break
-                    tokens_rpn: list[str] = line_RPN.split()
+                    tokens_rpn: list[str] = line_rpn.split()
                     result = calculate(tokens_rpn)
-                    print(result)
+                    print("Result:", result)
             except (ValueError, IndexError, TypeError):
                 print("\033[31mInput error\033[0m")
 
-        if line == "IN":
+        elif line.upper() == "IN":
+            print("\nEntered Infix mode. Input standard mathematical expressions.")
+            print("Type 'stop' to exit Infix mode.")
             try:
-                for line_IN in sys.stdin:
-                    line_IN = line_IN.strip()
-                    if not line_IN:
+                for line_in in sys.stdin:
+                    line_in = line_in.strip()
+                    if not line_in:
                         continue
-                    if line_IN == "stop":
+                    if line_in.lower() == "stop":
+                        print("Exiting Infix mode.\n")
                         break
-                    tokens_in: list[str] = line_IN.split()
+                    tokens_in: list[str] = line_in.split()
                     RPN_expression = translate_in_RPN(tokens_in)
 
-                    # Проверка: translate_in_RPN может вернуть list[str] или str (ошибка)
-                    if isinstance(RPN_expression, str) and RPN_expression in ERRORS:
+                    # Проверяем тип, чтобы mypy был доволен
+                    if isinstance(RPN_expression, list):
+                        result = calculate(RPN_expression)
+                        print("Result:", result)
+                    else:
+                        # Это строка с ошибкой
                         print(RPN_expression)
-                        continue
-
-                    result = calculate(RPN_expression)  # type: ignore[arg-type]
-                    print(result)
             except (ValueError, IndexError, TypeError):
                 print("\033[31mInput error\033[0m")
 
+        elif line.lower() == "stop":
+            print("Exiting calculator. Goodbye!")
+            break
+        else:
+            print("Unknown command. Please type 'RPN', 'IN', or 'stop'.")
 
-if __name__ == "__main__":
-    run()
 
