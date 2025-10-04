@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Main (WSL)",
+            "type": "python",
+            "request": "launch",
+            "module": "src.main",           // Запуск как модуль
+            "cwd": "${workspaceFolder}",    // Корень проекта = Lab_1
+            "console": "integratedTerminal",
+            "python": "/usr/bin/python3",   // Python 3 в WSL
+            "justMyCode": true
+        }
+    ]
+}
+
