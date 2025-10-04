@@ -1,246 +1,199 @@
 import re
-from src.constants import PRIORITIES, ERRORS
+from typing import Callable, Optional
+
+from src.constants import PRIORITIES
+
+# ------------------ Helper Functions ------------------
+
+def isNumber(token: str | int | float) -> bool:
+    """Check if the token is a number (integer, float, or exponential form)."""
+    return bool(
+        re.fullmatch(
+            r"([-+]?[1-9][0-9]*(\.[0-9]*)?)|(0(\.0*)?|([-+]?[1-9][0-9]*(\.[0-9]*)?[eE][-+]?[1-9][0-9]*))",
+            str(token),
+        )
+    )
 
 
-import re
-
-def isNumber(token):
-    """
-    Check if the token is a number (integer, float, or exponential form).
-
-    Args:
-        token (str | int | float): The token to check.
-
-    Returns:
-        bool: True if the token represents a number, otherwise False.
-    """
-    return bool(re.fullmatch(r"([-+]?[1-9][0-9]*(.[0-9]*)?)|(0(.0*)?|([-+]?[1-9][0-9]*(.[0-9]*)?[eE][-+]?[1-9][0-9]*))", str(token)))
+def isOperation(token: str) -> bool:
+    """Check if the token is a valid arithmetic operation."""
+    return token in ["+", "-", "*", "/", "|", "%", "^"]
 
 
-def isOperation(token):
-    """
-    Check if the token is a valid arithmetic operation.
-
-    Args:
-        token (str): The token to check.
-
-    Returns:
-        bool: True if the token is one of (+, -, *, /, |, %, ^), otherwise False.
-    """
-    return token in ['+', '-', '*', '/', '|', '%', '^']
-
-
-def getToken(expression):
-    """
-    Extract the first token from the expression.
-
-    Args:
-        expression (list | str): A sequence of tokens or a string expression.
-
-    Returns:
-        str | None: The first token, or None if the expression is empty.
-    """
+def getToken(expression: list[str]) -> Optional[str]:
+    """Extract the first token from the expression."""
     if expression:
         return expression[0]
     return None
 
+# ------------------ Parentheses Extraction ------------------
 
-def check_and_extract_parentheses(expression):
+def check_and_extract_parentheses(expression: list[str]) -> tuple[list[str] | str, list[str]]:
     """
-    Check and evaluate the expression inside parentheses (recursively).
-
-    Args:
-        expression (list | str): Expression starting with '('.
-
-    Returns:
-        tuple:
-            - result (float | int | str): The evaluated result or an error message.
-            - expression (list | str | None): The remaining expression after ')'.
+    Extract tokens inside parentheses for RPN evaluation.
+    Returns a tuple:
+      - tokens inside the parentheses (or error string)
+      - remaining tokens after the closing ')'
     """
-    if ')' in expression[1:]:
-        recursive_stack = []
+    inner_tokens: list[str] = []
+    expression = expression[1:]  
+
+    while expression:
+        token = expression[0]
         expression = expression[1:]
-        while token := getToken(expression):
-            if token == '(':
-                recursive_res, expression = check_and_extract_parentheses(expression)
-                recursive_stack.append(recursive_res)
-                expression = expression[1:]
-                continue
-            if token == ')':
-                break
-            recursive_stack.append(token)
-            expression = expression[1:]
-        return calculate(recursive_stack), expression
-    else:
-        return None, None
 
+        if token == "(":
+            sub_tokens, expression = check_and_extract_parentheses([token] + expression)
+            if isinstance(sub_tokens, str):  
+                return sub_tokens, []
+            inner_tokens.append("(")
+            inner_tokens.extend(sub_tokens)
+            inner_tokens.append(")")
+        elif token == ")":
+            return inner_tokens, expression
+        else:
+            inner_tokens.append(token)
 
-def operation(stack, token):
-    """
-    Perform an arithmetic operation on the top two elements of the stack.
+    # Если дошли до конца, а закрывающей скобки не было — ошибка
+    return "\033[31mSyntax error\033[0m", []
 
-    Args:
-        stack (list[float]): Operand stack.
-        token (str): Operation ('+', '-', '*', '/', '|', '%', '^').
+# ------------------ Arithmetic Operations ------------------
 
-    Returns:
-        tuple:
-            - result (float | str): The operation result or an error message.
-            - stack (list | None): Updated stack, or None if error occurred.
-    """
+def safe_div(a: float, b: float) -> float:
+    if b == 0:
+        raise ZeroDivisionError
+    return a / b
+
+def safe_int_div(a: float, b: float) -> int:
+    if not a.is_integer() or not b.is_integer():
+        raise TypeError
+    if b == 0:
+        raise ZeroDivisionError
+    return int(a) // int(b)
+
+def safe_mod(a: float, b: float) -> int:
+    if not a.is_integer() or not b.is_integer():
+        raise TypeError
+    if b == 0:
+        raise ZeroDivisionError
+    return int(a) % int(b)
+
+def safe_pow(a: float, b: float) -> float | int:
     try:
-        operand_2 = stack.pop()
-        operand_1 = stack.pop()
-        match token:
-            case '+':
-                result = operand_1 + operand_2
-            case '-':
-                result = operand_1 - operand_2
-            case '*':
-                result = operand_1 * operand_2
-            case '/':
-                if operand_2 == 0:
-                    return "\033[31mDividing into zero not defined\033[0m", None
-                result = operand_1 / operand_2
-            case '|':
-                if operand_1.is_integer() and operand_2.is_integer:
-                    if operand_2 == 0:
-                        return "\033[31mDividing into zero not defined\033[0m", None
-                    result = int(operand_1) // int(operand_2)
-                else:
-                    return "\033[31mYou cannot perform an operation '|' on float numbers\033[0m", None
-            case '%':
-                if operand_1.is_integer() and operand_2.is_integer:
-                    if operand_2 == 0:
-                        return "\033[31mDividing into zero not defined\033[0m", None
-                    result = int(operand_1) % int(operand_2)
-                else:
-                    return "\033[31mYou cannot perform an operation '%' on float numbers\033[0m", None
-            case '^':
-                try:
-                    result = operand_1 ** operand_2
-                    if isinstance(result, int) and result > 10**308:
-                        result = float('inf')
-                except OverflowError:
-                    result = float('inf')
-            case _:
-                return "\033[31mUnknown operation\033[0m", None
+        result: float | int = a ** b
+        if isinstance(result, int) and result > 10**308:
+            return float("inf")
+        return result
+    except OverflowError:
+        return float("inf")
+
+OP_MAP: dict[str, Callable[[float, float], float | int]] = {
+    "+": lambda a, b: a + b,
+    "-": lambda a, b: a - b,
+    "*": lambda a, b: a * b,
+    "/": safe_div,
+    "|": safe_int_div,
+    "%": safe_mod,
+    "^": safe_pow,
+}
+
+def operation(stack: list[float], token: str) -> tuple[float | str, list[float] | None]:
+    """Perform operation on top two elements of the stack."""
+    try:
+        b = stack.pop()
+        a = stack.pop()
+        try:
+            result = OP_MAP[token](a, b)
+        except ZeroDivisionError:
+            return "\033[31mDividing into zero not defined\033[0m", None
+        except TypeError:
+            return f"\033[31mYou cannot perform an operation '{token}' on float numbers\033[0m", None
         return result, stack
-    except ValueError:
-        return float('inf'), None
+    except IndexError:
+        return "\033[31mNot enough operands\033[0m", None
 
+# ------------------ RPN Conversion ------------------
 
-def translate_in_RPN(expression):
-    """
-    Convert an expression into Reverse Polish Notation (RPN).
-
-    Args:
-        expression (list | str): A mathematical expression.
-
-    Returns:
-        list[str] | str: Tokens in RPN format, or an error message.
-    """
-    result = []
-    operation_stack = []
-    while token := getToken(expression):
-
+def translate_in_RPN(expression: list[str]) -> list[str] | str: # noqa: C901
+    """Convert expression to Reverse Polish Notation."""
+    result: list[str] = []
+    stack_ops: list[str] = []
+    for token in expression:
         if isNumber(token):
             result.append(token)
-            expression = expression[1:]
-            continue
-
-        if isOperation(token):
-            while operation_stack and isOperation(token) and (PRIORITIES[operation_stack[-1]] >= PRIORITIES[token]):
-
-                result.append(operation_stack.pop())
-            operation_stack.append(token)
-            expression = expression[1:]
-            continue
-
-        if token == '(':
-            operation_stack.append(token)
-            expression = expression[1:]
-            continue
-
-        if token == ')':
-            if '(' not in operation_stack:
+        elif isOperation(token):
+            while (
+                stack_ops
+                and isOperation(stack_ops[-1])
+                and PRIORITIES[stack_ops[-1]] >= PRIORITIES[token]
+            ):
+                result.append(stack_ops.pop())
+            stack_ops.append(token)
+        elif token == "(":
+            stack_ops.append(token)
+        elif token == ")":
+            while stack_ops and stack_ops[-1] != "(":
+                result.append(stack_ops.pop())
+            if not stack_ops or stack_ops.pop() != "(":
                 return "\033[31mSyntax error\033[0m"
-            while operation_stack and operation_stack[-1] != '(':
-                result.append(operation_stack.pop())
-            if operation_stack and operation_stack[-1] == '(':
-                operation_stack.pop()
-            expression = expression[1:]
-            continue
+        else:
+            return "\033[31mSyntax error\033[0m"
 
+    while stack_ops:
+        if stack_ops[-1] == "(":
+            return "\033[31mSyntax error\033[0m"
+        result.append(stack_ops.pop())
+
+    return result
+
+# ------------------ RPN Evaluation ------------------
+
+def calculate(expression: list[str]) -> int | float | str: # noqa: C901
+    """Evaluate RPN or infix expression (with parentheses)."""
+    stack: list[float] = []
+    while expression:
+        token = expression[0]
+        expression = expression[1:]
+
+        if isNumber(token):
+            stack.append(float(token))
+        elif isOperation(token):
+            result, new_stack = operation(stack, token)
+            if new_stack is None:
+                return result
+            if isinstance(result, (int, float)):
+                stack = new_stack
+                stack.append(float(result))
+            else:
+                return result
+        elif token == "(":
+            inner_tokens, rest_tokens = check_and_extract_parentheses([token] + expression)
+            if isinstance(inner_tokens, str):
+                return inner_tokens  
+            rpn_inner = translate_in_RPN(inner_tokens)
+            if isinstance(rpn_inner, str):
+                return rpn_inner
+            result = calculate(rpn_inner)
+            if isinstance(result, str):
+                return result
+            stack.append(float(result))
+            expression = rest_tokens
+        else:
+            return "\033[31mSyntax error\033[0m"
+
+    if not stack:
+        return "\033[31mSyntax error\033[0m"
+    result = stack.pop()
+    if stack:
         return "\033[31mSyntax error\033[0m"
 
-    if '(' in result:
-        return "\033[31mSyntax error\033[0m"
-    while operation_stack:
-        result.append(operation_stack.pop())
+    if isinstance(result, float) and result.is_integer():
+        return int(result)
     return result
 
 
-def calculate(expression):
-    """
-    Evaluate an expression in Reverse Polish Notation (RPN) or infix form (with parentheses).
 
-    Args:
-        expression (list | str): A mathematical expression.
 
-    Returns:
-        int | float | str:
-            - int: if the result is an integer
-            - float: if the result is a decimal
-            - str: error message
-    """
-    stack = []
-    while token := getToken(expression):
-        if isNumber(token):
-            stack.append(float(token))
-            expression = expression[1:]
-            continue
-
-        if isOperation(token):
-            try:
-                if type(stack[-1]) in [int, float] and type(stack[-2]) in [int, float]:
-                    result, stack = operation(stack, token)
-                    if stack == None:
-                        return result
-                    stack.append(float(result))
-                    expression = expression[1:]
-                    continue
-            except:
-                return "\033[31mNot enough operands\033[0m"
-
-        if token == '(':
-            recursive_res, expression = check_and_extract_parentheses(expression)
-            if recursive_res in ERRORS:
-                return recursive_res
-            if expression == None:
-                return "\033[31mSyntax error\033[0m"
-            stack.append(recursive_res)
-            expression = expression[1:]
-            continue
-
-        return "\033[31mSyntax error\033[0m"
-
-    if stack:
-        result = stack.pop()
-    else:
-        return "\033[31mSyntax error\033[0m"
-    if not stack:
-        if isinstance(result, float):
-            if result.is_integer():
-                return int(result)
-            else:
-                return result
-        elif isinstance(result, int):
-            return result
-        else:
-            return result
-    else:
-        return "\033[31mSyntax error\033[0m"
 
 
 

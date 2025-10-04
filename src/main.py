@@ -1,64 +1,15 @@
 """
-RPN Calculator (M3 variant) with support for Reverse Polish Notation (RPN)
-and infix expressions with optional parentheses validation.
-
-Features:
-- Supported operators: +, -, *, /, ^, |, %
-- | and % are only allowed for integers
-- Unary + / - are allowed inside numbers (e.g., -3 or +4.5)
-- Parentheses may be present in infix input; each parentheses group must reduce to a single value:
-    Examples:
-        ( 2 ) -> OK
-        ( 1 2 + ) -> OK
-        ( 1 2 ) + -> INVALID (inside parentheses leaves more than one value)
-- No usage of eval/exec for security reasons.
-
-Usage:
-------
-Run the program:
-    $ python3 src/main.py
-
-The calculator starts in interactive mode and accepts two commands:
-
-1) RPN mode:
-    Enter `RPN` to evaluate expressions written directly in Reverse Polish Notation.
-    Tokens must be space-separated.
-
-    Example:
-        Input:
-            RPN
-            3 4 + 
-            5 2 - 
-            stop
-
-        Output:
-            7
-            3
-
-2) IN mode:
-    Enter `IN` to evaluate infix expressions. They will be converted
-    into RPN automatically before evaluation.
-
-    Example:
-        Input:
-            IN
-            ( 3 + 4 ) * 2
-            2 ^ 10
-            stop
-
-        Output:
-            14
-            1024
-
-Type `stop` at any time to exit the current mode.
+Calculator (M3 + M2 variant) with support for Reverse Polish Notation (RPN)
+and Infix expressions with optional parentheses validation.
 """
 
 import sys
-from src.power import calculate, translate_in_RPN
+
 from src.constants import ERRORS
+from src.power import calculate, translate_in_RPN
 
 
-def run():
+def run() -> None:  # noqa: C901
     """
     Run the calculator REPL loop.
 
@@ -66,7 +17,7 @@ def run():
     - Prompts the user to input expressions.
     - Supports two modes:
         * "RPN" → input is already in Reverse Polish Notation.
-        * "IN"  → input is infix, converted to RPN automatically.
+        * "IN"  → input is Infix, converted to RPN automatically.
     - Stops reading expressions if the user types 'stop'.
 
     Error handling:
@@ -80,40 +31,43 @@ def run():
         line = line.strip()
         if not line:
             continue
-        if line == 'RPN':
+
+        if line == "RPN":
             try:
                 for line_RPN in sys.stdin:
                     line_RPN = line_RPN.strip()
                     if not line_RPN:
                         continue
-                    if line_RPN == 'stop':
+                    if line_RPN == "stop":
                         break
-                    tokens = line_RPN.split()
-                    result = calculate(tokens)
-                    if result is not None:
-                        print(result)
-            except:
+                    tokens_rpn: list[str] = line_RPN.split()
+                    result = calculate(tokens_rpn)
+                    print(result)
+            except (ValueError, IndexError, TypeError):
                 print("\033[31mInput error\033[0m")
 
-        if line == 'IN':
+        if line == "IN":
             try:
                 for line_IN in sys.stdin:
                     line_IN = line_IN.strip()
                     if not line_IN:
                         continue
-                    if line_IN == 'stop':
+                    if line_IN == "stop":
                         break
-                    tokens = line_IN.split()
-                    RPN_expression = translate_in_RPN(tokens)
-                    if RPN_expression in ERRORS:
+                    tokens_in: list[str] = line_IN.split()
+                    RPN_expression = translate_in_RPN(tokens_in)
+
+                    # Проверка: translate_in_RPN может вернуть list[str] или str (ошибка)
+                    if isinstance(RPN_expression, str) and RPN_expression in ERRORS:
                         print(RPN_expression)
                         continue
-                    result = calculate(RPN_expression)
-                    if result is not None:
-                        print(result)
-            except:
+
+                    result = calculate(RPN_expression)  # type: ignore[arg-type]
+                    print(result)
+            except (ValueError, IndexError, TypeError):
                 print("\033[31mInput error\033[0m")
 
 
 if __name__ == "__main__":
     run()
+

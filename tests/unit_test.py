@@ -1,6 +1,6 @@
-from src.power import calculate, translate_in_RPN
 import pytest
 
+from src.power import calculate, translate_in_RPN
 
 
 # === CORRECT EXPRESSIONS ===
