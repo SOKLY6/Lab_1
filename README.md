@@ -23,6 +23,7 @@
 
 # Установка зависимостей
 В файле requirements.txt находятся зависимости. Для установки зависимостей выполните следующие шаги, заранее находясь в папке Lab_1/ (корень проекта):
+pip3 install -r requirements.txt
 
 # Создайте виртуальное окружение
 python3 -m venv venv
@@ -32,7 +33,7 @@ python3 -m venv venv
 
 Для Windows: C:\путь\к\проекту\venv\Scripts\activate.bat
 
-Установка зависимостей
+# Установка зависимостей
 pip3 install -r requirements.txt 
 
 # Запуск программы
